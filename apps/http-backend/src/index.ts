@@ -9,7 +9,7 @@ import {
   CreateUserSchema,
   SigninSchema,
 } from "@repo/common/types";
-import { prismaClient } from "@repo/db/client";
+import { prismaClient } from "@repo/db/index";
 const PORT = process.env.PORT || 3002;
 
 const app = express();
@@ -37,7 +37,7 @@ app.post("/signup", async function (req, res) {
     console.log("Validation failed:", ParseData.error);
     res.status(400).json({
       message: "Incorrect inputs. Please check your form data.",
-      errors: ParseData.error.errors,
+    
     });
     return;
   }
@@ -70,7 +70,7 @@ app.post("/signin", async function (req: any, res: any) {
     console.log("Validation failed:", ParseData.error);
     res.status(400).json({
       message: "Incorrect inputs. Please check your form data.",
-      errors: ParseData.error.errors,
+      
     });
     return;
   }
@@ -107,7 +107,7 @@ app.post("/room", middleware, async function (req, res) {
     console.log("Room validation failed:", ParseData.error);
     res.status(400).json({
       message: "Incorrect inputs",
-      errors: ParseData.error.errors,
+
     });
     return;
   }
