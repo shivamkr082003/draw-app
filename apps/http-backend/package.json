@@ -9,9 +9,11 @@
   },
   "dependencies": {
     "@repo/backend-comman": "workspace:*",
+    "@repo/common": "workspace:*",
+    "@repo/db": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-     "@repo/common": "workspace:*",
-     "@repo/db": "workspace:*"
+    "@types/cors": "^2.8.19",
+    "cors": "^2.8.5"
   },
   "keywords": [],
   "author": "",

@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-comman/config";
 import { middleware } from "./middleware.js";
-// import cors from "cors";
+import cors from "cors";
 
 import {
   CreateRoomSchema,
@@ -15,53 +15,66 @@ const PORT = process.env.PORT || 3002;
 const app = express();
 app.use(express.json());
 
-// app.use(
-//   cors({
-//     origin: ["http://localhost:3000", "http://localhost:3001"],
-//     credentials: true,
-//     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//   })
-// );
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // app.options("*", cors());
 
-// app.get("/health", (req, res) => {
-//   res.json({ status: "OK", message: "Server is running" });
-// });
+app.get("/health", (req, res) => {
+  res.json({ status: "OK", message: "Server is running" });
+});
 
 app.post("/signup", async function (req, res) {
-
   const ParseData = CreateUserSchema.safeParse(req.body);
   if (!ParseData.success) {
-    console.log("Validation failed:", ParseData.error);
-    res.status(400).json({
+    return res.status(400).json({
       message: "Incorrect inputs. Please check your form data.",
-    
     });
-    return;
   }
 
   try {
     const user = await prismaClient.user.create({
       data: {
         email: ParseData.data.email,
-        password: ParseData.data.password,
+        password: ParseData.data.password, // ⚠️ hashing later
         name: ParseData.data.name,
       },
     });
 
-    res.json({
+    // ✅ IMPORTANT: 201 status
+    return res.status(201).json({
+      success: true,
       message: "Signup successful",
-      userId: user.id,
-      name: user.name,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
     });
-  } catch (error) {
-    res.status(409).json({
-      message: "User already exists with this email address",
+  } catch (error: any) {
+    // ✅ Only duplicate email error → 409
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        success: false,
+        message: "User already exists with this email address",
+      });
+    }
+
+    // ✅ Any other error
+    console.error("Signup error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 });
+
 
 app.post("/signin", async function (req: any, res: any) {
 
@@ -216,150 +229,150 @@ app.get("/chats/:roomId", async function (req, res) {
   }
 });
 
-// app.get("/room/:slug", async function (req, res) {
-//   const slug = req.params.slug;
-//   let room = await prismaClient.room.findFirst({
-//     where: {
-//       slug,
-//     },
-//   });
+app.get("/room/:slug", async function (req, res) {
+  const slug = req.params.slug;
+  let room = await prismaClient.room.findFirst({
+    where: {
+      slug,
+    },
+  });
 
-//   if (!room) {
-//     try {
-//       let guestUser = await prismaClient.user.findFirst({
-//         where: {
-//           email: "guest@excalidraw.local",
-//         },
-//       });
+  if (!room) {
+    try {
+      let guestUser = await prismaClient.user.findFirst({
+        where: {
+          email: "guest@excalidraw.local",
+        },
+      });
 
-//       if (!guestUser) {
-//         guestUser = await prismaClient.user.create({
-//           data: {
-//             email: "guest@excalidraw.local",
-//             password: "guest_password_not_used",
-//             name: "Guest User",
-//           },
-//         });
-//       }
+      if (!guestUser) {
+        guestUser = await prismaClient.user.create({
+          data: {
+            email: "guest@excalidraw.local",
+            password: "guest_password_not_used",
+            name: "Guest User",
+          },
+        });
+      }
 
-//       room = await prismaClient.room.create({
-//         data: {
-//           slug,
-//           adminId: guestUser.id,
-//         },
-//       });
-//       console.log(`Auto-created room for slug: ${slug}`);
-//     } catch (error) {
-//       console.error("Failed to auto-create room:", error);
-//       res.status(500).json({
-//         room: null,
-//         error: "Failed to create room",
-//       });
-//       return;
-//     }
-//   }
+      room = await prismaClient.room.create({
+        data: {
+          slug,
+          adminId: guestUser.id,
+        },
+      });
+      console.log(`Auto-created room for slug: ${slug}`);
+    } catch (error) {
+      console.error("Failed to auto-create room:", error);
+      res.status(500).json({
+        room: null,
+        error: "Failed to create room",
+      });
+      return;
+    }
+  }
 
-//   res.json({
-//     room,
-//   });
-// });
+  res.json({
+    room,
+  });
+});
 
-// app.get("/drawings/:roomId", async function (req, res) {
-//   try {
-//     const roomId = Number(req.params.roomId);
+app.get("/drawings/:roomId", async function (req, res) {
+  try {
+    const roomId = Number(req.params.roomId);
     
-//     if (isNaN(roomId)) {
-//       res.status(400).json({
-//         message: "Invalid room ID",
-//         drawings: [],
-//       });
-//       return;
-//     }
+    if (isNaN(roomId)) {
+      res.status(400).json({
+        message: "Invalid room ID",
+        drawings: [],
+      });
+      return;
+    }
 
-//     const drawings = await prismaClient.drawing.findMany({
-//       where: {
-//         roomId: roomId,
-//       },
-//       orderBy: {
-//         createdAt: "asc",
-//       },
-//     });
+    const drawings = await prismaClient.drawing.findMany({
+      where: {
+        roomId: roomId,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
 
-//     const elements = drawings.map(drawing => JSON.parse(drawing.elementData));
+    const elements = drawings.map(drawing => JSON.parse(drawing.elementData));
 
-//     res.json({
-//       drawings: elements,
-//     });
-//   } catch (e) {
-//     console.log(e);
-//     res.status(500).json({
-//       message: "Failed to fetch drawings",
-//       drawings: [],
-//     });
-//   }
-// });
+    res.json({
+      drawings: elements,
+    });
+  } catch (e) {
+    console.log(e);
+    res.status(500).json({
+      message: "Failed to fetch drawings",
+      drawings: [],
+    });
+  }
+});
 
-// app.post("/drawings", async function (req, res) {
-//   try {
-//     const { roomId, elementData, elementId, userId } = req.body;
+app.post("/drawings", async function (req, res) {
+  try {
+    const { roomId, elementData, elementId, userId } = req.body;
 
-//     if (!roomId || !elementData || !elementId) {
-//       res.status(400).json({
-//         message: "Missing required fields",
-//       });
-//       return;
-//     }
+    if (!roomId || !elementData || !elementId) {
+      res.status(400).json({
+        message: "Missing required fields",
+      });
+      return;
+    }
 
-//     const drawing = await prismaClient.drawing.create({
-//       data: {
-//         roomId: Number(roomId),
-//         elementId: elementId,
-//         elementData: JSON.stringify(elementData),
-//         userId: userId || "guest",
-//       },
-//     });
+    const drawing = await prismaClient.drawing.create({
+      data: {
+        roomId: Number(roomId),
+        elementId: elementId,
+        elementData: JSON.stringify(elementData),
+        userId: userId || "guest",
+      },
+    });
 
-//     res.json({
-//       message: "Drawing saved successfully",
-//       id: drawing.id,
-//     });
-//   } catch (e) {
-//     console.error("Failed to save drawing:", e);
-//     res.status(500).json({
-//       message: "Failed to save drawing",
-//     });
-//   }
-// });
+    res.json({
+      message: "Drawing saved successfully",
+      id: drawing.id,
+    });
+  } catch (e) {
+    console.error("Failed to save drawing:", e);
+    res.status(500).json({
+      message: "Failed to save drawing",
+    });
+  }
+});
 
-// app.delete("/drawings/:elementId", async function (req, res) {
-//   try {
-//     const { elementId } = req.params;
-//     const { roomId } = req.body;
+app.delete("/drawings/:elementId", async function (req, res) {
+  try {
+    const { elementId } = req.params;
+    const { roomId } = req.body;
 
-//     if (!roomId) {
-//       res.status(400).json({
-//         message: "Room ID is required",
-//       });
-//       return;
-//     }
+    if (!roomId) {
+      res.status(400).json({
+        message: "Room ID is required",
+      });
+      return;
+    }
 
-//     await prismaClient.drawing.deleteMany({
-//       where: {
-//         elementId: elementId,
-//         roomId: Number(roomId),
-//       },
-//     });
+    await prismaClient.drawing.deleteMany({
+      where: {
+        elementId: elementId,
+        roomId: Number(roomId),
+      },
+    });
 
-//     res.json({
-//       message: "Drawing deleted successfully",
-//     });
-//   } catch (e) {
-//     console.error("Failed to delete drawing:", e);
-//     res.status(500).json({
-//       message: "Failed to delete drawing",
-//     });
-//   }
-// });
+    res.json({
+      message: "Drawing deleted successfully",
+    });
+  } catch (e) {
+    console.error("Failed to delete drawing:", e);
+    res.status(500).json({
+      message: "Failed to delete drawing",
+    });
+  }
+});
 
 app.listen(PORT, function () {
   console.log(`Server is running on http://localhost:${PORT}`);

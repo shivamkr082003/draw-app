@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model User {
 id          String           @id @default(uuid())
 email       String           @unique
@@ -15,7 +17,7 @@ name        String?
 photo       String?
 rooms       Room[]
 chats       Chat[]
-
+drawings    Drawing[]
 }
 
 
@@ -26,6 +28,7 @@ createdAt   DateTime          @default(now())
 adminId     String
 admin       User              @relation(fields: [adminId], references: [id])
 chats       Chat[]
+drawings    Drawing[]
 }
 
 
@@ -37,4 +40,18 @@ message      String
 userId       String
 room         Room             @relation(fields: [roomId], references: [id])
 user         User             @relation(fields: [userId], references: [id])
+}
+
+model Drawing {
+id           Int              @id @default(autoincrement())
+roomId       Int
+elementId    String           
+elementData  String           // JSON string of the drawing element
+createdAt    DateTime         @default(now())
+userId       String
+room         Room             @relation(fields: [roomId], references: [id])
+user         User             @relation(fields: [userId], references: [id])
+
+@@index([roomId])
+@@index([elementId])
 }
