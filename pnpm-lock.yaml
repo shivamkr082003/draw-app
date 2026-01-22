@@ -75,9 +75,6 @@ importers:
 
   apps/http-backend:
     dependencies:
-      '@repo/backend-comman':
-        specifier: workspace:*
-        version: link:../../packages/backend-comman
       '@repo/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -115,15 +112,18 @@ importers:
 
   apps/ws-backend:
     dependencies:
-      '@repo/backend-comman':
-        specifier: workspace:*
-        version: link:../../packages/backend-comman
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
+      '@types/dotenv':
+        specifier: ^8.2.3
+        version: 8.2.3
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3

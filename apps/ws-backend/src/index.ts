@@ -1,9 +1,23 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+const JWT_SECRET = process.env.JWT_SECRET!;
+
 import { WebSocket, WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { JWT_SECRET } from "@repo/backend-comman/config";
+
 import { prismaClient } from "@repo/db/index";
 
-const wss = new WebSocketServer({ port: 8080 });
+const PORT = Number(process.env.PORT);
+
+if (!PORT) {
+  throw new Error("PORT is not defined in .env");
+}
+
+const wss = new WebSocketServer({ port: PORT });
+console.log(`WebSocket server running on ws://localhost:${PORT}`);
+
+
 
 interface Users {
   ws: WebSocket;
