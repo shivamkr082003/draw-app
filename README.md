@@ -1,136 +1,131 @@
-# Turborepo starter
+# Excalidraw - Collaborative Whiteboard
 
-This Turborepo starter is maintained by the Turborepo core team.
+A real-time collaborative whiteboard application built with Next.js, WebSocket, and PostgreSQL. Create, share, and collaborate on diagrams, sketches, and wireframes with your team instantly.
 
-## Using this example
+## ✨ Demo
 
-Run the following command:
+https://private-user-images.githubusercontent.com/153661552/515860214-33a3d359-aa8f-47bf-8cae-3bb44659983b.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NjM0ODc2NTgsIm5iZiI6MTc2MzQ4NzM1OCwicGF0aCI6Ii8xNTM2NjE1NTIvNTE1ODYwMjE0LTMzYTNkMzU5LWFhOGYtNDdiZi04Y2FlLTNiYjQ0NjU5OTgzYi5tcDQ_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUxMTE4JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MTExOFQxNzM1NThaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1iN2Y2Y2FhMjY3NjQ1NDdmZDM4NGEzODhhYmJjOGVlMjYwMTFhYTViOGVmMzIzNGY1MjI4MTYyOTQyNmQ3YTlmJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9._Q1E2_lJPDnVoy6cyUPyJ2dv84aPPzpvpjAiQaPvWQI
 
-```sh
-npx create-turbo@latest
-```
+## 🚀 Features
 
-## What's inside?
+- **Real-Time Collaboration** - Multiple users can draw simultaneously with instant synchronization
+- **Drawing Tools** - Rectangle, Circle, Line, Pencil, Text, and Selection tools
+- **Undo/Redo** - Full history support synced across all users
+- **Room Management** - Create and share workspaces with team members
+- **Authentication** - Secure user authentication with JWT
+- **Guest Mode** - Try the app without signing up
+- **Modern UI** - Beautiful, responsive design with Tailwind CSS and Framer Motion animations
 
-This Turborepo includes the following packages/apps:
+## 🛠️ Tech Stack
 
-### Apps and Packages
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS, Framer Motion
+- **Backend**: Express.js, WebSocket (ws), Prisma ORM
+- **Database**: PostgreSQL (Neon)
+- **Monorepo**: Turborepo with pnpm workspaces
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## 📦 Project Structure
 
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+apps/
+├── draw/              # Next.js frontend application
+├── http-backend/      # Express REST API server
+└── ws-backend/        # WebSocket server for real-time sync
+packages/
+├── db/               # Prisma database schema and client
+├── common/           # Shared types
+└── ui/               # Shared UI components
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## 🏃‍♂️ Getting Started
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+### Prerequisites
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+- Node.js 18+
+- pnpm 9+
+- PostgreSQL database (or Neon account)
 
 ### Remote Caching
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+### Installation
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+1. Clone the repository
+```bash
+git clone https://github.com/shivamkr082003/draw-app.git
+cd Excalidraw
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+2. Install dependencies
+```bash
+pnpm install
 ```
 
-## Useful Links
+3. Set up environment variables
 
-Learn more about the power of Turborepo:
+Create `.env` files in the following locations:
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
-# draw-app
+**`packages/db/.env`**
+```env
+DATABASE_URL=""
+```
+
+**`apps/http-backend/.env`**
+```env
+DATABASE_URL=""
+JWT_SECRET="your-super-secret-jwt-key"
+PORT=3002
+```
+
+**`apps/ws-backend/.env`**
+```env
+DATABASE_URL=""
+JWT_SECRET="your-super-secret-jwt-key"
+PORT=8080
+```
+
+**`apps/draw/.env.local`**
+```env
+NEXT_PUBLIC_WS_URL="ws://localhost:8080"
+NEXT_PUBLIC_HTTP_BACKEND="http://localhost:3002"
+```
+
+4. Run database migrations
+```bash
+cd packages/db
+pnpm db:migrate
+```
+
+5. Start the development servers
+```bash
+cd ../..
+pnpm dev
+```
+
+The application will be available at:
+- Frontend: `http://localhost:3000`
+- HTTP Backend: `http://localhost:3002`
+- WebSocket Server: `ws://localhost:8080`
+
+## 🚢 Deployment
+
+### Deploy to Railway (Recommended)
+
+1. Create a new project on [Railway](https://railway.app)
+2. Add PostgreSQL database service
+3. Deploy each service:
+   - `http-backend` (Port: 3002)
+   - `ws-backend` (Port: 8080)
+   - `draw` (Next.js app)
+4. Set environment variables for each service
+5. Run migrations: `npx prisma migrate deploy`
+
+### Deploy to Vercel
+
+The frontend can be deployed to Vercel:
+```bash
+cd apps/draw
+vercel deploy
+```
+
+Backend services need to be deployed separately (Railway, Render, etc.)
+
+
