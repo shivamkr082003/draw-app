@@ -307,7 +307,7 @@ app.get("/drawings/:roomId", async function (req, res) {
       },
     });
 
-    const elements = drawings.map(drawing => JSON.parse(drawing.elementData));
+    const elements = drawings.map((drawing: any) => JSON.parse(drawing.elementData));
 
     res.json({
       drawings: elements,
