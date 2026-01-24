@@ -166,7 +166,7 @@ app.post("/room", middleware, async function (req, res) {
 
     let roomSlug = ParseData.data.name;
     let attempt = 0;
-    let room = null;
+    let room :any = null;
 
     while (attempt < 5) {
       try {

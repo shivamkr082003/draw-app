@@ -1,7 +1,18 @@
 {
-    "extends" : "@repo/typescript-config/base.json",
+    "extends": "@repo/typescript-config/base.json",
     "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./dist"
-    }
+        "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@repo/common/*": ["../../packages/common/src/*"],
+            "@repo/db/*": ["../../packages/db/src/*"]
+        },
+        "noImplicitAny": false,
+        "skipLibCheck": true
+    },
+    "include": [
+        "src/**/*",
+        "../../packages/common/src/**/*",
+        "../../packages/db/src/**/*"
+    ]
 }
