@@ -8,11 +8,9 @@
             "@repo/db/*": ["../../packages/db/src/*"]
         },
         "noImplicitAny": false,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "module": "CommonJS",
+        "moduleResolution": "node"
     },
-    "include": [
-        "src/**/*",
-        "../../packages/common/src/**/*",
-        "../../packages/db/src/**/*"
-    ]
+    "include": ["src/**/*"]
 }
