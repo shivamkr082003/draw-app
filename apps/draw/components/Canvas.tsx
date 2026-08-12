@@ -52,20 +52,23 @@ export function Canvas({
   const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
-    if (canvasRef.current) {
-      initDraw(
-        canvasRef.current,
-        roomId,
-        socket,
-        selectedTool,
-        {
-          onHistoryChange: () => {
-            
-          },
-        },
-        isDarkMode
-      );
-    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let removeCanvasListeners: (() => void) | undefined;
+
+    void initDraw(
+      canvas,
+      roomId,
+      socket,
+      selectedTool,
+      {
+        onHistoryChange: () => {},
+      },
+      isDarkMode
+    ).then((cleanup) => {
+      removeCanvasListeners = cleanup;
+    });
 
     const handleMessage = (event: MessageEvent) => {
       const data = JSON.parse(event.data);
@@ -75,8 +78,14 @@ export function Canvas({
     };
 
     socket.addEventListener("message", handleMessage);
-    return () => socket.removeEventListener("message", handleMessage);
-  }, [canvasRef, roomId, socket, selectedTool, isDarkMode]);
+
+    return () => {
+      socket.removeEventListener("message", handleMessage);
+      removeCanvasListeners?.();
+    };
+    // selectedTool/isDarkMode intentionally omitted — tool/dark mode updates use setCurrentTool/setDarkMode
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, socket]);
 
   useEffect(() => {
     setCurrentTool(selectedTool);

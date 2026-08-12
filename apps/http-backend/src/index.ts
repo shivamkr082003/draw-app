@@ -10,6 +10,12 @@ import express, { Request, Response } from "express";
 
 import jwt from "jsonwebtoken";
 
+import {
+  handleGitHubCallback,
+  handleGoogleCallback,
+  startGitHubAuth,
+  startGoogleAuth,
+} from "./oauth.js";
 import { middleware } from "./middleware.js";
 import cors from "cors";
 
@@ -19,6 +25,16 @@ import {
   SigninSchema,
 } from "@repo/common/types";
 import { prismaClient } from "@repo/db/index";
+import {
+  CACHE_TTL,
+  chatsCacheKey,
+  connectRedisCache,
+  drawingsCacheKey,
+  redisDel,
+  redisGet,
+  redisSet,
+  roomCacheKey,
+} from "./redis.js";
 const PORT = process.env.PORT || 3002;
 
 const app = express();
@@ -26,7 +42,11 @@ app.use(express.json());
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      process.env.FRONTEND_URL,
+    ].filter(Boolean) as string[],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -99,11 +119,16 @@ app.post("/signin", async function (req: any, res: any) {
   const user = await prismaClient.user.findFirst({
     where: {
       email: ParseData.data.email,
-      password: ParseData.data.password,
     },
   });
 
-  if (!user) {
+  if (!user || !user.password || user.password !== ParseData.data.password) {
+    if (user && !user.password) {
+      return res.status(403).json({
+        message: "This account uses social login. Please sign in with GitHub or Google.",
+      });
+    }
+
     return res.status(403).json({
       message: "Invalid email or password",
     });
@@ -121,6 +146,11 @@ app.post("/signin", async function (req: any, res: any) {
     name: user.name,
   });
 });
+
+app.get("/auth/github", startGitHubAuth);
+app.get("/auth/github/callback", handleGitHubCallback);
+app.get("/auth/google", startGoogleAuth);
+app.get("/auth/google/callback", handleGoogleCallback);
 
 app.post("/room", middleware, async function (req, res) {
 
@@ -216,6 +246,16 @@ app.post("/room", middleware, async function (req, res) {
 app.get("/chats/:roomId", async function (req, res) {
   try {
     const roomId = Number(req.params.roomId);
+    const cacheKey = chatsCacheKey(roomId);
+
+    const cached = await redisGet(cacheKey);
+    if (cached !== null) {
+      console.log(`[Redis] HIT ${cacheKey}`);
+      res.json(JSON.parse(cached));
+      return;
+    }
+
+    console.log(`[Redis] MISS ${cacheKey}`);
     console.log(req.params.roomId);
     const messages = await prismaClient.chat.findMany({
       where: {
@@ -227,9 +267,9 @@ app.get("/chats/:roomId", async function (req, res) {
       take: 50,
     });
 
-    res.json({
-      messages,
-    });
+    const response = { messages };
+    await redisSet(cacheKey, JSON.stringify(response), CACHE_TTL.CHATS_SECONDS);
+    res.json(response);
   } catch (e) {
     console.log(e);
     res.json({
@@ -240,6 +280,16 @@ app.get("/chats/:roomId", async function (req, res) {
 
 app.get("/room/:slug", async function (req, res) {
   const slug = req.params.slug;
+  const cacheKey = roomCacheKey(slug);
+
+  const cached = await redisGet(cacheKey);
+  if (cached !== null) {
+    console.log(`[Redis] HIT ${cacheKey}`);
+    res.json(JSON.parse(cached));
+    return;
+  }
+
+  console.log(`[Redis] MISS ${cacheKey}`);
   let room = await prismaClient.room.findFirst({
     where: {
       slug,
@@ -281,9 +331,9 @@ app.get("/room/:slug", async function (req, res) {
     }
   }
 
-  res.json({
-    room,
-  });
+  const response = { room };
+  await redisSet(cacheKey, JSON.stringify(response), CACHE_TTL.ROOM_SECONDS);
+  res.json(response);
 });
 
 app.get("/drawings/:roomId", async function (req, res) {
@@ -298,6 +348,15 @@ app.get("/drawings/:roomId", async function (req, res) {
       return;
     }
 
+    const cacheKey = drawingsCacheKey(roomId);
+    const cached = await redisGet(cacheKey);
+    if (cached !== null) {
+      console.log(`[Redis] HIT ${cacheKey}`);
+      res.json(JSON.parse(cached));
+      return;
+    }
+
+    console.log(`[Redis] MISS ${cacheKey}`);
     const drawings = await prismaClient.drawing.findMany({
       where: {
         roomId: roomId,
@@ -308,10 +367,10 @@ app.get("/drawings/:roomId", async function (req, res) {
     });
 
     const elements = drawings.map((drawing: any) => JSON.parse(drawing.elementData));
+    const response = { drawings: elements };
 
-    res.json({
-      drawings: elements,
-    });
+    await redisSet(cacheKey, JSON.stringify(response), CACHE_TTL.DRAWINGS_SECONDS);
+    res.json(response);
   } catch (e) {
     console.log(e);
     res.status(500).json({
@@ -340,6 +399,8 @@ app.post("/drawings", async function (req, res) {
         userId: userId || "guest",
       },
     });
+
+    await redisDel(drawingsCacheKey(roomId));
 
     res.json({
       message: "Drawing saved successfully",
@@ -372,6 +433,8 @@ app.delete("/drawings/:elementId", async function (req, res) {
       },
     });
 
+    await redisDel(drawingsCacheKey(roomId));
+
     res.json({
       message: "Drawing deleted successfully",
     });
@@ -383,6 +446,15 @@ app.delete("/drawings/:elementId", async function (req, res) {
   }
 });
 
-app.listen(PORT, function () {
-  console.log(`Server is running on http://localhost:${PORT}`);
- });
+async function start() {
+  await connectRedisCache();
+
+  app.listen(PORT, function () {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error("Failed to start HTTP server:", err);
+  process.exit(1);
+});

@@ -78,6 +78,12 @@ export function setCurrentTool(tool: Tool) {
 
 export function setDarkMode(isDark: boolean) {
   isDarkModeGlobal = isDark;
+  if (canvasRef && canvasCtx) {
+    redrawCanvas(canvasRef, canvasCtx, isDarkModeGlobal);
+    if (selectedElement && selectedElementIndex !== -1) {
+      drawSelectionBox(canvasCtx, elements[selectedElementIndex]);
+    }
+  }
 }
 
 export function undo() {

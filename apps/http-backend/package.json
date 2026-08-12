@@ -2,18 +2,19 @@
   "name": "http-backend",
   "version": "1.0.0",
   "main": "index.js",
- "scripts": {
-  "build": "tsc -b",
-  "start": "node dist/apps/http-backend/src/index.js",
-  "dev": "npm run build && npm run start"
-},
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/apps/http-backend/src/index.js",
+    "dev": "npm run build && npm run start"
+  },
   "dependencies": {
     "@repo/common": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/cors": "^2.8.19",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "redis": "^6.2.1"
   },
   "keywords": [],
   "author": "",

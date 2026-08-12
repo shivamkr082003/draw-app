@@ -83,6 +83,10 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
     }
   };
 
+  const handleOAuthLogin = (provider: "github" | "google") => {
+    window.location.href = `${HTTP_BACKEND}/auth/${provider}`;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
       <div className="w-full max-w-md">
@@ -216,13 +220,21 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
 
           {}
           <div className="space-y-3">
-            <button onClick={() => alert("GitHub login coming soon 🚧")} className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+            <button
+              type="button"
+              onClick={() => handleOAuthLogin("github")}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+            >
               <Github className="w-5 h-5 text-slate-700 dark:text-slate-300" />
               <span className="text-slate-700 dark:text-slate-300 font-medium">
                 Continue with GitHub
               </span>
             </button>
-            <button onClick={() => alert("Google login coming soon 🚧")} className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+            <button
+              type="button"
+              onClick={() => handleOAuthLogin("google")}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+            >
               <Chrome className="w-5 h-5 text-slate-700 dark:text-slate-300" />
               <span className="text-slate-700 dark:text-slate-300 font-medium">
                 Continue with Google

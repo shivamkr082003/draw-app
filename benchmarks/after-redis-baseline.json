@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "generatedAt": "2026-08-12T19:57:59.131Z",
+    "baseUrl": "http://localhost:3002",
+    "note": "Post-Redis caching benchmark. BEFORE baseline: see before-redis-baseline snapshot in git history or user report.",
+    "totalRequests": 21,
+    "measuredRequests": 20,
+    "roomId": 33,
+    "roomSlug": "br-64627448"
+  },
+  "cachedEndpoints": {
+    "GET /drawings/:roomId": { "averageMs": 3.39, "minMs": 1.41, "maxMs": 5.54 },
+    "GET /room/:slug": { "averageMs": 2.59, "minMs": 1.22, "maxMs": 7.31 },
+    "GET /chats/:roomId": { "averageMs": 3.29, "minMs": 2.09, "maxMs": 5.20 }
+  },
+  "uncachedControl": {
+    "GET /health": { "averageMs": 2.15 }
+  }
+}

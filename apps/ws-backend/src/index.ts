@@ -7,17 +7,19 @@ import { WebSocket, WebSocketServer } from "ws";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 import { prismaClient } from "@repo/db/index";
+import {
+  connectRedis,
+  publishToRedis,
+  SERVER_ID,
+  subscribeToRoom,
+  unsubscribeFromRoom,
+} from "./redis.js";
 
 const PORT = Number(process.env.PORT);
 
 if (!PORT) {
   throw new Error("PORT is not defined in .env");
 }
-
-const wss = new WebSocketServer({ port: PORT });
-console.log(`WebSocket server running on ws://localhost:${PORT}`);
-
-
 
 interface Users {
   ws: WebSocket;
@@ -26,6 +28,63 @@ interface Users {
 }
 
 const users: Users[] = [];
+
+function normalizeRoomId(roomId: string | number): string {
+  return roomId.toString();
+}
+
+function getLocalUsersInRoom(roomId: string): Users[] {
+  return users.filter((u) => u.rooms.includes(roomId));
+}
+
+function broadcastToLocalRoom(
+  roomId: string,
+  message: string,
+  excludeWs?: WebSocket
+) {
+  users.forEach((u) => {
+    if (u.rooms.includes(roomId) && u.ws !== excludeWs) {
+      u.ws.send(message);
+    }
+  });
+}
+
+async function ensureRoomSubscribed(roomId: string) {
+  const normalizedRoomId = normalizeRoomId(roomId);
+  if (getLocalUsersInRoom(normalizedRoomId).length > 0) {
+    await subscribeToRoom(normalizedRoomId);
+  }
+}
+
+async function maybeUnsubscribeRoom(roomId: string) {
+  const normalizedRoomId = normalizeRoomId(roomId);
+  if (getLocalUsersInRoom(normalizedRoomId).length === 0) {
+    await unsubscribeFromRoom(normalizedRoomId);
+  }
+}
+
+async function publishToRoom(
+  roomId: string | number,
+  message: object,
+  excludeWs?: WebSocket
+) {
+  const normalizedRoomId = normalizeRoomId(roomId);
+  const serialized = JSON.stringify(message);
+
+  broadcastToLocalRoom(normalizedRoomId, serialized, excludeWs);
+  await publishToRedis(normalizedRoomId, serialized);
+}
+
+function broadcastUserCount(roomId: string | number) {
+  const normalizedRoomId = normalizeRoomId(roomId);
+  const usersInRoom = getLocalUsersInRoom(normalizedRoomId);
+
+  void publishToRoom(normalizedRoomId, {
+    type: "userCount",
+    count: usersInRoom.length,
+    roomId: normalizedRoomId,
+  });
+}
 
 function CheckUser(token: string): string | null {
   if (token.startsWith("guest_")) {
@@ -50,7 +109,15 @@ function CheckUser(token: string): string | null {
   }
 }
 
-wss.on("connection", (ws: WebSocket, request) => {
+async function start() {
+  await connectRedis((roomId, message) => {
+    broadcastToLocalRoom(roomId, message);
+  });
+
+  const wss = new WebSocketServer({ port: PORT });
+  console.log(`WebSocket server running on ws://localhost:${PORT} (serverId=${SERVER_ID})`);
+
+  wss.on("connection", (ws: WebSocket, request) => {
   const url = request.url;
 
   if (!url) {
@@ -96,40 +163,19 @@ wss.on("connection", (ws: WebSocket, request) => {
     if (ParseData.type === "join_room") {
       const user = users.find((x) => x.ws === ws);
       if (user) {
-        user.rooms.push(ParseData.roomId);
-
-        const usersInRoom = users.filter((u) =>
-          u.rooms.includes(ParseData.roomId)
-        );
-
-        usersInRoom.forEach((u) => {
-          u.ws.send(
-            JSON.stringify({
-              type: "userCount",
-              count: usersInRoom.length,
-              roomId: ParseData.roomId,
-            })
-          );
-        });
+        const roomId = normalizeRoomId(ParseData.roomId);
+        user.rooms.push(roomId);
+        await ensureRoomSubscribed(roomId);
+        broadcastUserCount(roomId);
       }
     }
     if (ParseData.type === "leave_room") {
       const user = users.find((x) => x.ws === ws);
       if (user) {
-        const roomId = ParseData.roomId || ParseData.room;
+        const roomId = normalizeRoomId(ParseData.roomId || ParseData.room);
         user.rooms = user.rooms.filter((x) => x !== roomId);
-
-        const usersInRoom = users.filter((u) => u.rooms.includes(roomId));
-
-        usersInRoom.forEach((u) => {
-          u.ws.send(
-            JSON.stringify({
-              type: "userCount",
-              count: usersInRoom.length,
-              roomId,
-            })
-          );
-        });
+        broadcastUserCount(roomId);
+        await maybeUnsubscribeRoom(roomId);
       }
     }
     if (ParseData.type === "chat") {
@@ -156,17 +202,11 @@ wss.on("connection", (ws: WebSocket, request) => {
           }
         }
 
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString())) {
-            u.ws.send(
-              JSON.stringify({
-                type: "chat",
-                message: message,
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
+        await publishToRoom(roomId, {
+          type: "chat",
+          message: message,
+          roomId,
+          userId: user.userId,
         });
       }
     }
@@ -202,18 +242,16 @@ wss.on("connection", (ws: WebSocket, request) => {
           console.error("Failed to parse drawing element:", e);
         }
 
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString()) && u.ws !== ws) {
-            u.ws.send(
-              JSON.stringify({
-                type: "drawing",
-                message: message,
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
-        });
+        await publishToRoom(
+          roomId,
+          {
+            type: "drawing",
+            message: message,
+            roomId,
+            userId: user.userId,
+          },
+          ws
+        );
       }
     }
 
@@ -240,18 +278,16 @@ wss.on("connection", (ws: WebSocket, request) => {
           }
         }
 
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString()) && u.ws !== ws) {
-            u.ws.send(
-              JSON.stringify({
-                type: "elementRemoved",
-                elementId: elementId,
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
-        });
+        await publishToRoom(
+          roomId,
+          {
+            type: "elementRemoved",
+            elementId: elementId,
+            roomId,
+            userId: user.userId,
+          },
+          ws
+        );
       }
     }
 
@@ -281,18 +317,16 @@ wss.on("connection", (ws: WebSocket, request) => {
           }
         }
 
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString()) && u.ws !== ws) {
-            u.ws.send(
-              JSON.stringify({
-                type: "elementUpdated",
-                element: element,
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
-        });
+        await publishToRoom(
+          roomId,
+          {
+            type: "elementUpdated",
+            element: element,
+            roomId,
+            userId: user.userId,
+          },
+          ws
+        );
       }
     }
 
@@ -322,20 +356,17 @@ wss.on("connection", (ws: WebSocket, request) => {
           }
         }
 
-        const usersInRoom = users.filter((u) => u.rooms.includes(roomId.toString()) && u.ws !== ws);
-        console.log("Broadcasting clearCanvas to", usersInRoom.length, "users");
-        
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString()) && u.ws !== ws) {
-            u.ws.send(
-              JSON.stringify({
-                type: "clearCanvas",
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
-        });
+        console.log("Broadcasting clearCanvas to room:", roomId);
+
+        await publishToRoom(
+          roomId,
+          {
+            type: "clearCanvas",
+            roomId,
+            userId: user.userId,
+          },
+          ws
+        );
       }
     }
 
@@ -375,18 +406,16 @@ wss.on("connection", (ws: WebSocket, request) => {
           }
         }
 
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString()) && u.ws !== ws) {
-            u.ws.send(
-              JSON.stringify({
-                type: "undo",
-                elements: elements,
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
-        });
+        await publishToRoom(
+          roomId,
+          {
+            type: "undo",
+            elements: elements,
+            roomId,
+            userId: user.userId,
+          },
+          ws
+        );
       }
     }
 
@@ -426,18 +455,16 @@ wss.on("connection", (ws: WebSocket, request) => {
           }
         }
 
-        users.forEach((u) => {
-          if (u.rooms.includes(roomId.toString()) && u.ws !== ws) {
-            u.ws.send(
-              JSON.stringify({
-                type: "redo",
-                elements: elements,
-                roomId,
-                userId: user.userId,
-              })
-            );
-          }
-        });
+        await publishToRoom(
+          roomId,
+          {
+            type: "redo",
+            elements: elements,
+            roomId,
+            userId: user.userId,
+          },
+          ws
+        );
       }
     }
   });
@@ -450,19 +477,16 @@ wss.on("connection", (ws: WebSocket, request) => {
       users.splice(userIndex, 1);
 
       userRooms.forEach((roomId) => {
-        const usersInRoom = users.filter((u) => u.rooms.includes(roomId));
-
-        usersInRoom.forEach((u) => {
-          u.ws.send(
-            JSON.stringify({
-              type: "userCount",
-              count: usersInRoom.length,
-              roomId,
-            })
-          );
-        });
+        broadcastUserCount(roomId);
+        void maybeUnsubscribeRoom(roomId);
       });
     }
     console.log("Client disconnected");
   });
+  });
+}
+
+start().catch((err) => {
+  console.error("Failed to start WebSocket server:", err);
+  process.exit(1);
 });
