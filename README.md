@@ -11,6 +11,7 @@
 ![WebSocket](https://img.shields.io/badge/WebSocket-ws-010101?style=flat)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat&logo=prisma&logoColor=white)
+[![CI](https://github.com/shivamkr082003/draw-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shivamkr082003/draw-app/actions/workflows/ci.yml)
 
 | | |
 |---|---|
