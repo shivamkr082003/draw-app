@@ -715,9 +715,8 @@ Verified:
 | `.env` gitignored | Safe to commit `.env.example` only |
 | OAuth state | CSRF protection on callbacks |
 | WebSocket auth | JWT or `guest_*` token required |
+| Password storage | Email/password credentials hashed with bcrypt (cost factor 10) before storage |
 | Docker network | Redis and Postgres internal-only (not host-exposed) |
-
-**Known limitation:** email/password stored in plaintext in PostgreSQL (hashing planned). Prefer OAuth for production or treat as dev-only.
 
 ---
 
@@ -725,7 +724,6 @@ Verified:
 
 Items not yet implemented:
 
-- Password hashing (bcrypt/argon2)
 - Rate limiting on auth and API routes
 - Automated test suite (unit/integration/e2e)
 - CI/CD pipeline

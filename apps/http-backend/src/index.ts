@@ -35,6 +35,7 @@ import {
   redisSet,
   roomCacheKey,
 } from "./redis.js";
+import { hashPassword, verifyPassword } from "./password.js";
 const PORT = process.env.PORT || 3002;
 
 const app = express();
@@ -68,10 +69,11 @@ app.post("/signup", async function (req, res) {
   }
 
   try {
+    const hashedPassword = await hashPassword(ParseData.data.password);
     const user = await prismaClient.user.create({
       data: {
         email: ParseData.data.email,
-        password: ParseData.data.password, // ⚠️ hashing later
+        password: hashedPassword,
         name: ParseData.data.name,
       },
     });
@@ -122,15 +124,33 @@ app.post("/signin", async function (req: any, res: any) {
     },
   });
 
-  if (!user || !user.password || user.password !== ParseData.data.password) {
-    if (user && !user.password) {
-      return res.status(403).json({
-        message: "This account uses social login. Please sign in with GitHub or Google.",
-      });
-    }
-
+  if (!user) {
     return res.status(403).json({
       message: "Invalid email or password",
+    });
+  }
+
+  if (!user.password) {
+    return res.status(403).json({
+      message: "This account uses social login. Please sign in with GitHub or Google.",
+    });
+  }
+
+  const { valid, upgradedHash } = await verifyPassword(
+    ParseData.data.password,
+    user.password
+  );
+
+  if (!valid) {
+    return res.status(403).json({
+      message: "Invalid email or password",
+    });
+  }
+
+  if (upgradedHash) {
+    await prismaClient.user.update({
+      where: { id: user.id },
+      data: { password: upgradedHash },
     });
   }
 
