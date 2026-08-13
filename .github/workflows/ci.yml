@@ -61,6 +61,58 @@ jobs:
       - name: Build Next.js frontend
         run: pnpm --filter draw build
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: drawapp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d drawapp_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/drawapp_test
+      JWT_SECRET: ci-test-jwt-secret
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @repo/db exec prisma generate
+
+      - name: Build shared packages
+        run: |
+          pnpm --filter @repo/db build
+          pnpm --filter @repo/common build
+
+      - name: Run database migrations
+        run: pnpm --filter @repo/db exec prisma migrate deploy
+
+      - name: Run HTTP backend tests
+        run: pnpm --filter http-backend test
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest

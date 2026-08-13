@@ -4,7 +4,7 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET!;
 
 
-import express, { Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 
 
 
@@ -36,9 +36,10 @@ import {
   roomCacheKey,
 } from "./redis.js";
 import { hashPassword, verifyPassword } from "./password.js";
+import { authRateLimiter } from "./rateLimit.js";
 const PORT = process.env.PORT || 3002;
 
-const app = express();
+const app: Express = express();
 app.use(express.json());
 
 app.use(
@@ -60,7 +61,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", message: "Server is running" });
 });
 
-app.post("/signup", async function (req, res) {
+app.post("/signup", authRateLimiter, async function (req, res) {
   const ParseData = CreateUserSchema.safeParse(req.body);
   if (!ParseData.success) {
     return res.status(400).json({
@@ -107,7 +108,7 @@ app.post("/signup", async function (req, res) {
 });
 
 
-app.post("/signin", async function (req: any, res: any) {
+app.post("/signin", authRateLimiter, async function (req: any, res: any) {
 
   const ParseData = SigninSchema.safeParse(req.body);
   if (!ParseData.success) {
@@ -474,7 +475,11 @@ async function start() {
   });
 }
 
-start().catch((err) => {
-  console.error("Failed to start HTTP server:", err);
-  process.exit(1);
-});
+export { app };
+
+if (process.env.NODE_ENV !== "test") {
+  start().catch((err) => {
+    console.error("Failed to start HTTP server:", err);
+    process.exit(1);
+  });
+}

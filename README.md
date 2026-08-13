@@ -662,6 +662,27 @@ Free ports `3000`, `3002`, `8080` before starting.
 
 ## Testing
 
+### Automated HTTP backend tests
+
+Framework: **Vitest** + **Supertest** (`apps/http-backend`).
+
+Coverage includes auth signup/signin (bcrypt storage, JWT), auth rate limiting (`429`), room creation auth, drawing create/delete, and read endpoints (`/health`, `/room/:slug`, `/drawings/:roomId`, `/chats/:roomId`).
+
+Uses an isolated PostgreSQL test database — not production. Redis is not required (cache gracefully disabled when `REDIS_URL` is unset). OAuth credentials are not required.
+
+```bash
+# Requires PostgreSQL test DB (default URL below)
+export TEST_DATABASE_URL="postgresql://test:test@localhost:5432/drawapp_test"
+cd packages/db && npx prisma migrate deploy && cd ../..
+pnpm --filter @repo/db build
+pnpm --filter @repo/common build
+pnpm --filter http-backend test
+```
+
+Tests run automatically in GitHub Actions on push/PR to `main`.
+
+### Manual verification
+
 **HTTP benchmark**
 ```bash
 node apps/http-backend/scripts/benchmark-baseline.mjs
@@ -716,6 +737,7 @@ Verified:
 | OAuth state | CSRF protection on callbacks |
 | WebSocket auth | JWT or `guest_*` token required |
 | Password storage | Email/password credentials hashed with bcrypt (cost factor 10) before storage |
+| Auth rate limiting | `POST /signin` and `POST /signup` limited to 10 requests per IP per 10-minute window |
 | Docker network | Redis and Postgres internal-only (not host-exposed) |
 
 ---
@@ -724,8 +746,6 @@ Verified:
 
 Items not yet implemented:
 
-- Rate limiting on auth and API routes
-- Automated test suite (unit/integration/e2e)
 - CI/CD pipeline
 - Structured logging and production monitoring (metrics, tracing)
 - Global user count across WS instances (currently per-server for `userCount`)
