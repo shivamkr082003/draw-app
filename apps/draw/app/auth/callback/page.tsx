@@ -24,7 +24,17 @@ export default function AuthCallbackPage() {
       localStorage.setItem("token", token);
       localStorage.setItem("userId", userId);
       localStorage.setItem("userName", name || "");
-      router.replace("/dashboard");
+
+      const returnTo =
+        params.get("returnTo") ||
+        (typeof window !== "undefined" ? sessionStorage.getItem("returnTo") : null);
+
+      if (returnTo) {
+        sessionStorage.removeItem("returnTo");
+        router.replace(returnTo);
+      } else {
+        router.replace("/dashboard");
+      }
       return;
     }
 

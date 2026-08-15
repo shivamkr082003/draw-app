@@ -25,6 +25,12 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const getReturnTo = (): string | null => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("returnTo") || sessionStorage.getItem("returnTo");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -43,11 +49,34 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
 
       console.log("Response:", response.data);
 
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userId", response.data.userId);
-        localStorage.setItem("userName", response.data.name || name);
-        router.push("/dashboard");
+      let token = response.data.token;
+      let userId = response.data.userId || response.data.user?.id;
+      let userName = response.data.name || response.data.user?.name || name;
+
+      // If signup succeeded without returning a direct token, perform auto-signin
+      if (!token && !isSignin) {
+        try {
+          const signinRes = await axios.post(`${HTTP_BACKEND}/signin`, { email, password });
+          token = signinRes.data.token;
+          userId = signinRes.data.userId;
+          userName = signinRes.data.name || userName;
+        } catch {
+          // fallback to manual signin if auto-signin fails
+        }
+      }
+
+      if (token) {
+        localStorage.setItem("token", token);
+        if (userId) localStorage.setItem("userId", userId);
+        if (userName) localStorage.setItem("userName", userName);
+
+        const returnTo = getReturnTo();
+        if (returnTo) {
+          sessionStorage.removeItem("returnTo");
+          router.push(returnTo);
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         router.push("/signin");
       }
@@ -83,7 +112,13 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
   };
 
   const handleOAuthLogin = (provider: "github" | "google") => {
-    window.location.href = `${HTTP_BACKEND}/auth/${provider}`;
+    const returnTo = getReturnTo();
+    if (returnTo) {
+      sessionStorage.setItem("returnTo", returnTo);
+      window.location.href = `${HTTP_BACKEND}/auth/${provider}?returnTo=${encodeURIComponent(returnTo)}`;
+    } else {
+      window.location.href = `${HTTP_BACKEND}/auth/${provider}`;
+    }
   };
 
   return (

@@ -17,7 +17,13 @@ interface OAuthProfile {
   photo?: string;
 }
 
-const pendingStates = new Map<string, { provider: OAuthProvider; expiresAt: number }>();
+interface OAuthStateData {
+  provider: OAuthProvider;
+  expiresAt: number;
+  returnTo?: string;
+}
+
+const pendingStates = new Map<string, OAuthStateData>();
 
 function cleanupExpiredStates() {
   const now = Date.now();
@@ -28,24 +34,25 @@ function cleanupExpiredStates() {
   }
 }
 
-function createOAuthState(provider: OAuthProvider): string {
+function createOAuthState(provider: OAuthProvider, returnTo?: string): string {
   cleanupExpiredStates();
   const state = crypto.randomBytes(32).toString("hex");
   pendingStates.set(state, {
     provider,
     expiresAt: Date.now() + 10 * 60 * 1000,
+    returnTo,
   });
   return state;
 }
 
-function verifyOAuthState(state: string, provider: OAuthProvider): boolean {
+function verifyOAuthState(state: string, provider: OAuthProvider): OAuthStateData | null {
   cleanupExpiredStates();
   const data = pendingStates.get(state);
   if (!data || data.provider !== provider) {
-    return false;
+    return null;
   }
   pendingStates.delete(state);
-  return true;
+  return data;
 }
 
 function issueJwt(userId: string): string {
@@ -61,13 +68,17 @@ function redirectWithToken(
   res: Response,
   token: string,
   userId: string,
-  name?: string | null
+  name?: string | null,
+  returnTo?: string
 ) {
   const params = new URLSearchParams({
     token,
     userId,
     name: name || "",
   });
+  if (returnTo) {
+    params.set("returnTo", returnTo);
+  }
   res.redirect(`${FRONTEND_URL}/auth/callback?${params.toString()}`);
 }
 
@@ -277,13 +288,14 @@ async function exchangeGoogleCode(code: string): Promise<OAuthProfile> {
   };
 }
 
-export function startGitHubAuth(_req: Request, res: Response) {
+export function startGitHubAuth(req: Request, res: Response) {
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) {
     return redirectWithError(res, "GitHub OAuth is not configured on the server");
   }
 
-  const state = createOAuthState("github");
+  const returnTo = typeof req.query.returnTo === "string" ? req.query.returnTo : undefined;
+  const state = createOAuthState("github", returnTo);
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${BACKEND_URL}/auth/github/callback`,
@@ -308,7 +320,8 @@ export async function handleGitHubCallback(req: Request, res: Response) {
     return redirectWithError(res, "Invalid GitHub callback parameters");
   }
 
-  if (!verifyOAuthState(state, "github")) {
+  const stateData = verifyOAuthState(state, "github");
+  if (!stateData) {
     return redirectWithError(res, "Invalid or expired OAuth state");
   }
 
@@ -316,7 +329,7 @@ export async function handleGitHubCallback(req: Request, res: Response) {
     const profile = await exchangeGitHubCode(code);
     const user = await findOrCreateOAuthUser(profile, "github");
     const token = issueJwt(user.id);
-    redirectWithToken(res, token, user.id, user.name);
+    redirectWithToken(res, token, user.id, user.name, stateData.returnTo);
   } catch (err) {
     console.error("GitHub OAuth error:", err);
     redirectWithError(
@@ -326,13 +339,14 @@ export async function handleGitHubCallback(req: Request, res: Response) {
   }
 }
 
-export function startGoogleAuth(_req: Request, res: Response) {
+export function startGoogleAuth(req: Request, res: Response) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
     return redirectWithError(res, "Google OAuth is not configured on the server");
   }
 
-  const state = createOAuthState("google");
+  const returnTo = typeof req.query.returnTo === "string" ? req.query.returnTo : undefined;
+  const state = createOAuthState("google", returnTo);
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${BACKEND_URL}/auth/google/callback`,
@@ -360,7 +374,8 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     return redirectWithError(res, "Invalid Google callback parameters");
   }
 
-  if (!verifyOAuthState(state, "google")) {
+  const stateData = verifyOAuthState(state, "google");
+  if (!stateData) {
     return redirectWithError(res, "Invalid or expired OAuth state");
   }
 
@@ -368,7 +383,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const profile = await exchangeGoogleCode(code);
     const user = await findOrCreateOAuthUser(profile, "google");
     const token = issueJwt(user.id);
-    redirectWithToken(res, token, user.id, user.name);
+    redirectWithToken(res, token, user.id, user.name, stateData.returnTo);
   } catch (err) {
     console.error("Google OAuth error:", err);
     redirectWithError(
