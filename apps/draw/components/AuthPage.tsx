@@ -47,10 +47,9 @@ export function AuthPage({ isSignin }: { isSignin: boolean }) {
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("userId", response.data.userId);
         localStorage.setItem("userName", response.data.name || name);
-        router.push("/");
-      }
-      else {
-  router.push("/signin");
+        router.push("/dashboard");
+      } else {
+        router.push("/signin");
       }
       
     } catch (error: unknown) {

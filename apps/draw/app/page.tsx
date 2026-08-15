@@ -21,7 +21,7 @@ import { HTTP_BACKEND } from "@/config";
 import { useClientOnly } from "../hooks/useClientOnly";
 
 function App() {
-  const [roomName, setRoomName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [user, setUser] = useState<{ name: string; token: string } | null>(
     null
@@ -30,7 +30,6 @@ function App() {
   const isClient = useClientOnly();
 
   useEffect(() => {
-    
     if (isClient && typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       const userName = localStorage.getItem("userName");
@@ -40,27 +39,25 @@ function App() {
     }
   }, [isClient]);
 
-  const createRoom = async () => {
-    if (!roomName.trim()) {
-      alert("Please enter a room name");
+  const handleCreateWorkspace = async () => {
+    if (!workspaceName.trim()) {
+      alert("Please enter a workspace name");
       return;
     }
 
     const token = localStorage.getItem("token");
     if (!token) {
-      alert("Please sign in first to create a room");
+      alert("Please sign in first to create a workspace");
       router.push("/signin");
       return;
     }
 
     setIsCreating(true);
     try {
-      console.log("Creating room with name:", roomName);
-      console.log("Using token:", token);
-
+      console.log("Creating workspace with name:", workspaceName);
       const response = await axios.post(
-        `${HTTP_BACKEND}/room`,
-        { name: roomName },
+        `${HTTP_BACKEND}/workspaces`,
+        { name: workspaceName.trim() },
         {
           headers: {
             authorization: token,
@@ -69,24 +66,20 @@ function App() {
         }
       );
 
-      console.log("Room creation response:", response.data);
-
-      if (response.data.roomId || response.data.slug) {
-        const roomSlug = response.data.slug || roomName;
-        console.log("Navigating to room:", roomSlug);
-        router.push(`/canvas/${roomSlug}`);
+      console.log("Workspace created:", response.data);
+      if (response.data.workspace?.id) {
+        router.push(`/workspace/${response.data.workspace.id}`);
       } else {
-        alert("Failed to create room: No room ID returned");
+        router.push("/dashboard");
       }
     } catch (error: unknown) {
-      console.error("Failed to create room:", error);
+      console.error("Failed to create workspace:", error);
       if (axios.isAxiosError(error) && error.response) {
-        console.error("Error response:", error.response.data);
         alert(
-          `Failed to create room: ${error.response.data.message || error.response.status}`
+          `Failed to create workspace: ${error.response.data.message || error.response.status}`
         );
       } else {
-        alert("Failed to create room: Network error");
+        alert("Failed to create workspace: Network error");
       }
     } finally {
       setIsCreating(false);
@@ -148,7 +141,7 @@ function App() {
       <nav className="border-b border-slate-200/60 bg-white/90 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-purple-500 rounded-2xl blur opacity-75"></div>
                 <div className="relative w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -161,12 +154,20 @@ function App() {
                 </span>
                 <p className="text-xs text-slate-500 -mt-1">Collaborative Whiteboard</p>
               </div>
-            </div>
+            </Link>
 
             <div className="flex items-center gap-3">
               {isClient ? (
                 user ? (
                   <div className="flex items-center gap-4">
+                    <Link href="/dashboard">
+                      <Button
+                        variant="ghost"
+                        className="text-sm font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100"
+                      >
+                        My Workspaces
+                      </Button>
+                    </Link>
                     <div className="hidden sm:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-full">
                       <div className="w-8 h-8 bg-gradient-to-r from-violet-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                         {user.name[0].toUpperCase()}
@@ -181,7 +182,7 @@ function App() {
                         localStorage.clear();
                         setUser(null);
                       }}
-                      className="border-slate-300 hover:bg-slate-50"
+                      className="border-slate-300 hover:bg-slate-50 text-slate-700"
                     >
                       Sign Out
                     </Button>
@@ -233,21 +234,21 @@ function App() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
               {isClient ? (
                 user ? (
-                  <div className="w-full max-w-2xl">
+                  <div className="w-full max-w-2xl space-y-4">
                     <div className="flex flex-col sm:flex-row gap-3 p-2 bg-white rounded-2xl shadow-2xl shadow-violet-500/10 border border-slate-200">
                       <div className="flex-1">
                         <input
                           type="text"
                           placeholder="Name your workspace..."
-                          value={roomName}
-                          onChange={(e) => setRoomName(e.target.value)}
+                          value={workspaceName}
+                          onChange={(e) => setWorkspaceName(e.target.value)}
                           className="w-full px-6 py-4 border-0 rounded-xl focus:ring-2 focus:ring-violet-500 text-slate-900 placeholder:text-slate-400 text-lg"
-                          onKeyPress={(e) => e.key === "Enter" && createRoom()}
+                          onKeyPress={(e) => e.key === "Enter" && handleCreateWorkspace()}
                         />
                       </div>
                       <Button
-                        onClick={createRoom}
-                        disabled={!roomName.trim() || isCreating}
+                        onClick={handleCreateWorkspace}
+                        disabled={!workspaceName.trim() || isCreating}
                         className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 px-8 py-4 h-auto text-lg font-semibold shadow-lg shadow-violet-500/30"
                       >
                         {isCreating ? (
@@ -259,6 +260,17 @@ function App() {
                           </>
                         )}
                       </Button>
+                    </div>
+
+                    <div className="flex justify-center">
+                      <Link href="/dashboard">
+                        <Button
+                          variant="ghost"
+                          className="text-violet-700 hover:text-violet-800 hover:bg-violet-50 font-semibold text-sm"
+                        >
+                          View All My Workspaces →
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 ) : (
@@ -297,6 +309,7 @@ function App() {
                 </div>
               )}
             </div>
+
 
             {!user && isClient && (
               <p className="text-sm text-slate-500">

@@ -24,7 +24,7 @@ export default function AuthCallbackPage() {
       localStorage.setItem("token", token);
       localStorage.setItem("userId", userId);
       localStorage.setItem("userName", name || "");
-      router.replace("/");
+      router.replace("/dashboard");
       return;
     }
 

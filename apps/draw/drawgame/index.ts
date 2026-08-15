@@ -1024,3 +1024,180 @@ async function getExistingElements(roomId: string): Promise<DrawingElement[]> {
     return [];
   }
 }
+
+export function getCurrentElements(): DrawingElement[] {
+  return JSON.parse(JSON.stringify(elements));
+}
+
+export async function saveDrawingToBackend(
+  roomId: string,
+  userId?: string
+): Promise<{ success: boolean; message: string; count: number }> {
+  try {
+    const currentList = getCurrentElements();
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const resolvedUserId = userId || (typeof window !== "undefined" ? localStorage.getItem("userId") : undefined);
+
+    const response = await axios.post(
+      `${HTTP_BACKEND}/drawings/save`,
+      {
+        roomId,
+        elements: currentList,
+        userId: resolvedUserId,
+      },
+      {
+        headers: token ? { authorization: token } : {},
+      }
+    );
+
+    return {
+      success: true,
+      message: response.data.message || "Drawing saved successfully",
+      count: response.data.count ?? currentList.length,
+    };
+  } catch (error: any) {
+    console.error("Failed to save drawing to backend:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to save drawing",
+      count: 0,
+    };
+  }
+}
+
+export function exportAsPng(canvas: HTMLCanvasElement | null, filename: string = "whiteboard.png"): boolean {
+  try {
+    if (!canvas) return false;
+
+    // Create an export canvas to render clean white/dark background with current elements
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = canvas.width || window.innerWidth;
+    exportCanvas.height = canvas.height || window.innerHeight;
+    const ctx = exportCanvas.getContext("2d");
+    if (!ctx) return false;
+
+    // Fill background
+    ctx.fillStyle = isDarkModeGlobal ? "#1f2937" : "#ffffff";
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // Render all elements
+    elements.forEach((el) => drawElement(ctx, el));
+
+    const imageUri = exportCanvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.download = filename.endsWith(".png") ? filename : `${filename}.png`;
+    link.href = imageUri;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return true;
+  } catch (err) {
+    console.error("Failed to export PNG:", err);
+    return false;
+  }
+}
+
+export function exportAsJson(customElements?: DrawingElement[], filename: string = "whiteboard.json"): boolean {
+  try {
+    const listToExport = customElements || getCurrentElements();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(listToExport, null, 2));
+    const link = document.createElement("a");
+    link.setAttribute("href", dataStr);
+    link.setAttribute("download", filename.endsWith(".json") ? filename : `${filename}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return true;
+  } catch (err) {
+    console.error("Failed to export JSON:", err);
+    return false;
+  }
+}
+
+export function exportAsSvg(
+  customElements?: DrawingElement[],
+  isDark: boolean = isDarkModeGlobal,
+  filename: string = "whiteboard.svg"
+): boolean {
+  try {
+    const list = customElements || getCurrentElements();
+    const width = typeof window !== "undefined" ? window.innerWidth : 1920;
+    const height = typeof window !== "undefined" ? window.innerHeight : 1080;
+    const bgColor = isDark ? "#1f2937" : "#ffffff";
+
+    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
+    svgContent += `  <rect width="100%" height="100%" fill="${bgColor}"/>\n`;
+
+    list.forEach((el) => {
+      const stroke = el.strokeColor === "#000000" && isDark ? "#ffffff" : el.strokeColor;
+      const strokeWidth = el.strokeWidth || 2;
+
+      switch (el.type) {
+        case "rectangle":
+          if (el.width && el.height) {
+            svgContent += `  <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}" stroke="${stroke}" stroke-width="${strokeWidth}" fill="none" rx="2"/>\n`;
+          }
+          break;
+        case "circle":
+          if (el.radius && el.radius > 0) {
+            svgContent += `  <circle cx="${el.x}" cy="${el.y}" r="${el.radius}" stroke="${stroke}" stroke-width="${strokeWidth}" fill="none"/>\n`;
+          }
+          break;
+        case "diamond":
+          if (el.width && el.height) {
+            const cx = el.x + el.width / 2;
+            const cy = el.y + el.height / 2;
+            svgContent += `  <polygon points="${cx},${el.y} ${el.x + el.width},${cy} ${cx},${el.y + el.height} ${el.x},${cy}" stroke="${stroke}" stroke-width="${strokeWidth}" fill="none"/>\n`;
+          }
+          break;
+        case "line":
+          if (el.endX !== undefined && el.endY !== undefined) {
+            svgContent += `  <line x1="${el.x}" y1="${el.y}" x2="${el.endX}" y2="${el.endY}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>\n`;
+          }
+          break;
+        case "arrow":
+          if (el.endX !== undefined && el.endY !== undefined) {
+            const headLength = 15;
+            const angle = Math.atan2(el.endY - el.y, el.endX - el.x);
+            const x3 = el.endX - headLength * Math.cos(angle - Math.PI / 6);
+            const y3 = el.endY - headLength * Math.sin(angle - Math.PI / 6);
+            const x4 = el.endX - headLength * Math.cos(angle + Math.PI / 6);
+            const y4 = el.endY - headLength * Math.sin(angle + Math.PI / 6);
+
+            svgContent += `  <line x1="${el.x}" y1="${el.y}" x2="${el.endX}" y2="${el.endY}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>\n`;
+            svgContent += `  <polygon points="${el.endX},${el.endY} ${x3},${y3} ${x4},${y4}" fill="${stroke}"/>\n`;
+          }
+          break;
+        case "pencil":
+          if (el.points && el.points.length > 1) {
+            const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+            svgContent += `  <path d="${d}" stroke="${stroke}" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
+          }
+          break;
+        case "text":
+          if (el.text) {
+            const escaped = el.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            svgContent += `  <text x="${el.x}" y="${el.y}" fill="${stroke}" font-family="Arial, sans-serif" font-size="16">${escaped}</text>\n`;
+          }
+          break;
+      }
+    });
+
+    svgContent += `</svg>`;
+
+    const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename.endsWith(".svg") ? filename : `${filename}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch (err) {
+    console.error("Failed to export SVG:", err);
+    return false;
+  }
+}
+

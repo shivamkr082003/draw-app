@@ -13,6 +13,10 @@
 ![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?style=flat&logo=prisma&logoColor=white)
 [![CI](https://github.com/shivamkr082003/draw-app/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shivamkr082003/draw-app/actions/workflows/ci.yml)
 
+## 🚀 Live Demo
+
+🔗 **Live Application:** https://drawapp-b3b3.onrender.com
+
 | | |
 |---|---|
 | **Stack** | Turborepo monorepo · pnpm · Express · Prisma |
@@ -22,6 +26,7 @@
 
 ## Table of Contents
 
+- [Live Demo](#-live-demo)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [System Architecture](#system-architecture)
@@ -42,22 +47,25 @@
 
 | Feature | Description |
 |---------|-------------|
+| **Multi-workspace management** | Create and manage custom workspaces to organize rooms and projects |
 | **Real-time drawing** | WebSocket room broadcasts; shapes sync across clients instantly |
+| **Live presence indicator** | Real-time online user counter per room |
+| **Whiteboard export & save** | Export diagrams as **PNG**, **SVG**, or **JSON**; one-click cloud save |
 | **Redis Pub/Sub** | Cross-server WebSocket sync via `ws:room:roomId` channels |
-| **Redis caching** | Cache-aside on three GET endpoints (~99% lower cache-hit latency) |
+| **Redis caching** | Cache-aside on GET endpoints (~99% lower cache-hit latency) |
 | **GitHub / Google OAuth** | Social login with JWT issued after callback |
 | **Email + JWT auth** | Sign up / sign in with token stored in `localStorage` |
 | **Guest mode** | `guest_*` tokens for drawing without an account |
-| **PostgreSQL + Prisma** | Users, rooms, drawings, chats, OAuth accounts |
+| **PostgreSQL + Prisma** | Workspaces, rooms, drawings, chats, users, OAuth accounts |
 | **Docker Compose** | One-command full stack (frontend, backends, Postgres, Redis) |
 | **Undo / Redo** | Canvas history synced over WebSocket |
 | **Chat** | Real-time room chat; persisted for authenticated users |
 
 Draw is a Turborepo monorepo with three runtime services:
 
-- **Frontend** (`apps/draw`) — Next.js app for auth, rooms, and canvas UI
-- **HTTP backend** (`apps/http-backend`) — REST API, OAuth, Redis cache-aside
-- **WebSocket backend** (`apps/ws-backend`) — real-time drawing, chat, undo/redo, presence
+- **Frontend** (`apps/draw`) — Next.js app for workspaces dashboard, rooms, and canvas UI
+- **HTTP backend** (`apps/http-backend`) — REST API, workspaces & rooms API, OAuth, Redis cache-aside
+- **WebSocket backend** (`apps/ws-backend`) — real-time drawing, presence count, chat, undo/redo
 
 ---
 
@@ -525,12 +533,23 @@ Frontend `depends_on` healthy HTTP and WS backends. HTTP backend entrypoint runs
 | GET | `/auth/github/callback` | GitHub callback | | |
 | GET | `/auth/google` | Start Google OAuth | | |
 | GET | `/auth/google/callback` | Google callback | | |
-| POST | `/room` | Create room | JWT / guest | |
+| GET | `/workspaces` | List authenticated user workspaces | JWT | |
+| POST | `/workspaces` | Create new workspace | JWT | |
+| GET | `/workspaces/:workspaceId` | Get workspace details and rooms | JWT / Guest | |
+| PUT | `/workspaces/:workspaceId` | Update workspace (name/description) | JWT | |
+| DELETE | `/workspaces/:workspaceId` | Delete workspace and rooms | JWT | |
+| GET | `/workspaces/:workspaceId/rooms`| List rooms in workspace | JWT | |
+| POST | `/workspaces/:workspaceId/rooms`| Create room inside workspace | JWT | |
+| POST | `/rooms/join` | Validate & join room by workspace & room ID | | |
+| POST | `/room` | Create room (legacy/quick) | JWT / guest | |
 | GET | `/room/:slug` | Get room by slug | | **600s** |
+| GET | `/rooms/:roomId` | Get room by ID | | |
 | GET | `/drawings/:roomId` | Get room drawings | | **300s** |
+| POST | `/drawings/save` | Bulk save/sync current whiteboard drawings | | invalidates |
 | GET | `/chats/:roomId` | Chat history (last 50) | | **30s** |
 | POST | `/drawings` | Persist element | | invalidates |
 | DELETE | `/drawings/:elementId` | Delete element | | invalidates |
+
 
 ---
 

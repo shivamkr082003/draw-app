@@ -10,59 +10,78 @@ datasource db {
 
 
 model User {
-id            String          @id @default(uuid())
-email         String          @unique
-password      String?
-name          String?
-photo         String?
-rooms         Room[]
-chats         Chat[]
-drawings      Drawing[]
-oauthAccounts OAuthAccount[]
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password      String?
+  name          String?
+  photo         String?
+  rooms         Room[]
+  chats         Chat[]
+  drawings      Drawing[]
+  oauthAccounts OAuthAccount[]
+  workspaces    Workspace[]
 }
 
 model OAuthAccount {
-id                String   @id @default(uuid())
-provider          String
-providerAccountId String
-userId            String
-user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(uuid())
+  provider          String
+  providerAccountId String
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-@@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
 }
 
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  rooms       Room[]
+
+  @@index([ownerId])
+}
 
 model Room {
-id          Int               @id @default(autoincrement())
-slug        String            @unique
-createdAt   DateTime          @default(now())
-adminId     String
-admin       User              @relation(fields: [adminId], references: [id])
-chats       Chat[]
-drawings    Drawing[]
+  id          Int          @id @default(autoincrement())
+  name        String?
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+  adminId     String
+  admin       User         @relation(fields: [adminId], references: [id])
+  workspaceId String?
+  workspace   Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  chats       Chat[]
+  drawings    Drawing[]
+
+  @@index([workspaceId])
 }
 
-
-
 model Chat {
-id           Int              @id @default(autoincrement())
-roomId       Int
-message      String    
-userId       String
-room         Room             @relation(fields: [roomId], references: [id])
-user         User             @relation(fields: [userId], references: [id])
+  id           Int              @id @default(autoincrement())
+  roomId       Int
+  message      String    
+  userId       String
+  room         Room             @relation(fields: [roomId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
 }
 
 model Drawing {
-id           Int              @id @default(autoincrement())
-roomId       Int
-elementId    String           
-elementData  String           // JSON string of the drawing element
-createdAt    DateTime         @default(now())
-userId       String
-room         Room             @relation(fields: [roomId], references: [id])
-user         User             @relation(fields: [userId], references: [id])
+  id           Int              @id @default(autoincrement())
+  roomId       Int
+  elementId    String           
+  elementData  String           // JSON string of the drawing element
+  createdAt    DateTime         @default(now())
+  userId       String
+  room         Room             @relation(fields: [roomId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
 
-@@index([roomId])
-@@index([elementId])
+  @@index([roomId])
+  @@index([elementId])
 }
+

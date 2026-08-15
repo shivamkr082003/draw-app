@@ -164,7 +164,9 @@ async function start() {
       const user = users.find((x) => x.ws === ws);
       if (user) {
         const roomId = normalizeRoomId(ParseData.roomId);
-        user.rooms.push(roomId);
+        if (!user.rooms.includes(roomId)) {
+          user.rooms.push(roomId);
+        }
         await ensureRoomSubscribed(roomId);
         broadcastUserCount(roomId);
       }
@@ -472,7 +474,7 @@ async function start() {
     const userIndex = users.findIndex((x) => x.ws === ws);
     if (userIndex !== -1) {
       const user = users[userIndex];
-      const userRooms = user ? [...user.rooms] : [];
+      const userRooms = user ? [...new Set(user.rooms)] : [];
 
       users.splice(userIndex, 1);
 

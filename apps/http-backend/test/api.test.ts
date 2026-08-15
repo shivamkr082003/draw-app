@@ -183,4 +183,97 @@ describe("HTTP API integration", () => {
     });
     expect(remaining).toHaveLength(0);
   });
+
+  let createdWorkspaceId = "";
+  let workspaceRoomSlug = "";
+
+  it("POST /workspaces creates a new workspace for authenticated user", async () => {
+    const res = await request(app)
+      .post("/workspaces")
+      .set("authorization", token)
+      .send({
+        name: `Workspace ${runId}`,
+        description: "Test workspace description",
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.workspace.name).toBe(`Workspace ${runId}`);
+    expect(res.body.workspace.id).toBeDefined();
+    createdWorkspaceId = res.body.workspace.id;
+  });
+
+  it("GET /workspaces returns user workspaces", async () => {
+    const res = await request(app)
+      .get("/workspaces")
+      .set("authorization", token);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.workspaces)).toBe(true);
+    const found = res.body.workspaces.find((w: any) => w.id === createdWorkspaceId);
+    expect(found).toBeDefined();
+    expect(found.name).toBe(`Workspace ${runId}`);
+  });
+
+  it("POST /workspaces/:workspaceId/rooms creates a room inside the workspace", async () => {
+    const res = await request(app)
+      .post(`/workspaces/${createdWorkspaceId}/rooms`)
+      .set("authorization", token)
+      .send({
+        name: `Sprint Board ${runId}`,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe(`Sprint Board ${runId}`);
+    expect(res.body.roomId).toBeDefined();
+    expect(res.body.slug).toBeDefined();
+    workspaceRoomSlug = res.body.slug;
+  });
+
+  it("POST /rooms/join validates and returns room info", async () => {
+    const res = await request(app)
+      .post("/rooms/join")
+      .set("authorization", token)
+      .send({
+        workspaceId: createdWorkspaceId,
+        roomId: workspaceRoomSlug,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.workspace.id).toBe(createdWorkspaceId);
+    expect(res.body.room.slug).toBe(workspaceRoomSlug);
+  });
+
+  it("POST /drawings/save bulk saves canvas drawings", async () => {
+    const res = await request(app)
+      .post("/drawings/save")
+      .set("authorization", token)
+      .send({
+        roomId,
+        userId,
+        elements: [
+          { type: "circle", x: 10, y: 20, radius: 15, strokeColor: "#000" },
+          { type: "rectangle", x: 30, y: 40, width: 50, height: 50, strokeColor: "#f00" },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.count).toBe(2);
+  });
+
+  it("DELETE /workspaces/:workspaceId deletes workspace and cascades rooms", async () => {
+    const res = await request(app)
+      .delete(`/workspaces/${createdWorkspaceId}`)
+      .set("authorization", token);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const check = await prismaClient.workspace.findUnique({
+      where: { id: createdWorkspaceId },
+    });
+    expect(check).toBeNull();
+  });
 });
