@@ -464,7 +464,9 @@ function App() {
                 </a>
               </div>
               <a
-                href="#"
+                href="https://github.com/shivamkr082003/draw-app"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 rounded-xl transition-colors"
               >
                 <Github className="w-5 h-5" />

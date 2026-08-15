@@ -77,6 +77,8 @@ export function Canvas({
   connectionStatus = "connected",
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+  const exportButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedTool, setSelectedTool] = useState<Tool>("select");
   const [userCount, setUserCount] = useState<number>(1);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
@@ -88,6 +90,36 @@ export function Canvas({
   const [copiedId, setCopiedId] = useState<boolean>(false);
 
   const displayRoomTitle = roomName || roomSlug || `Room ${roomId}`;
+
+  // Close Export dropdown on outside click or Escape key
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        exportDropdownRef.current &&
+        !exportDropdownRef.current.contains(e.target as Node) &&
+        exportButtonRef.current &&
+        !exportButtonRef.current.contains(e.target as Node)
+      ) {
+        setIsExportMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsExportMenuOpen(false);
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isExportMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isExportMenuOpen]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -260,8 +292,8 @@ export function Canvas({
       </div>
 
       {/* Center Top: Drawing Toolbar */}
-      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-20 max-w-[95vw] overflow-x-auto">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-xl px-3 py-2 flex items-center gap-2">
+      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-30 max-w-[98vw]">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-xl px-2.5 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1.5 sm:gap-2">
           {/* Drawing Tools */}
           <div className="flex items-center gap-1 pr-2 border-r border-slate-200">
             <IconButton
@@ -354,7 +386,7 @@ export function Canvas({
           </div>
 
           {/* Save & Export Controls */}
-          <div className="flex items-center gap-1.5 relative">
+          <div className="flex items-center gap-1.5 relative shrink-0">
             <button
               onClick={handleSave}
               disabled={isSaving}
@@ -369,40 +401,71 @@ export function Canvas({
               <span>Save</span>
             </button>
 
-            {/* Export Dropdown Button */}
+            {/* Export Dropdown Button & Popover */}
             <div className="relative">
               <button
+                ref={exportButtonRef}
                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium text-xs transition-colors"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+                  isExportMenuOpen
+                    ? "border-violet-500 bg-violet-50 text-violet-700 shadow-xs"
+                    : "border-slate-200 hover:bg-slate-100 text-slate-700"
+                }`}
                 title="Export Whiteboard"
+                aria-expanded={isExportMenuOpen}
+                aria-haspopup="true"
               >
-                <Download size={14} />
+                <Download size={14} className={isExportMenuOpen ? "text-violet-600" : "text-slate-600"} />
                 <span>Export</span>
-                <ChevronDown size={12} />
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform duration-200 ${isExportMenuOpen ? "rotate-180 text-violet-600" : "text-slate-400"}`}
+                />
               </button>
 
               {isExportMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+                <div
+                  ref={exportDropdownRef}
+                  className="absolute top-full right-0 mt-2 w-52 bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-900/10 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <div className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                    Export as
+                  </div>
                   <button
                     onClick={handleExportPng}
-                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 flex items-center gap-2.5 transition-colors"
+                    className="w-full px-2.5 py-2 text-left rounded-xl text-xs font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 flex items-center justify-between transition-colors group"
                   >
-                    <ImageIcon size={15} className="text-violet-600" />
-                    <span>Export PNG</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center text-violet-600 group-hover:scale-105 transition-transform">
+                        <ImageIcon size={13} />
+                      </div>
+                      <span className="font-semibold">PNG Image</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">.png</span>
                   </button>
                   <button
                     onClick={handleExportSvg}
-                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 flex items-center gap-2.5 transition-colors"
+                    className="w-full px-2.5 py-2 text-left rounded-xl text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors group"
                   >
-                    <FileCode size={15} className="text-indigo-600" />
-                    <span>Export SVG</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform">
+                        <FileCode size={13} />
+                      </div>
+                      <span className="font-semibold">SVG Vector</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">.svg</span>
                   </button>
                   <button
                     onClick={handleExportJson}
-                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-violet-50 hover:text-violet-700 flex items-center gap-2.5 transition-colors"
+                    className="w-full px-2.5 py-2 text-left rounded-xl text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-between transition-colors group"
                   >
-                    <FileJson size={15} className="text-emerald-600" />
-                    <span>Export JSON</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform">
+                        <FileJson size={13} />
+                      </div>
+                      <span className="font-semibold">JSON Data</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">.json</span>
                   </button>
                 </div>
               )}
